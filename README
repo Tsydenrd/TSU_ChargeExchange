@@ -1,0 +1,11 @@
+     =========================================================
+     Geant4 - an Object-Oriented Toolkit for Simulation in HEP
+     =========================================================
+
+
+                	Evaporation test     
+
+                        V. Ivanchenko
+
+The goal of this test is to identify accuracy of Geant4 
+evaporation cross sections.

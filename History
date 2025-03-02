@@ -1,0 +1,16 @@
+# Category evaporation History
+
+See `CONTRIBUTING.rst` for details of **required** info/format for each entry,
+which **must** added in reverse chronological order (newest at the top). It must **not**
+be used as a substitute for writing good git commit messages!
+
+
+## 2022-04-25, Vladimir Ivanchenko (evaporation-V11-00-00)
+- first commit
+
+## 2024-07-05, Nikita Chalyi (evaporation-V11-02-00)
+- overall changes to Evaporation.cc
+
+## 2024-07-17, Nikita Chalyi (evaporation-V11-02-01)
+- another test overhaul and simplifications
+- added separate Kalbach and Chatterjee xsections calculations and plots
