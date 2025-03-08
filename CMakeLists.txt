@@ -1,6 +1,6 @@
 #----------------------------------------------------------------------------
 # Setup the project
-set(name Evaporation)
+set(name TSU_ChargeExchange)
 cmake_minimum_required(VERSION 3.16...3.21)
 project(${name})
 
@@ -13,7 +13,7 @@ option(WITH_GEANT4_UIVIS "Build example with Geant4 UI and Vis drivers" ON)
 if(WITH_GEANT4_UIVIS)
   find_package(Geant4 REQUIRED ui_all vis_all)
 else()
-  find_package(Geant4 REQUIRED)
+  find_package(Geant4 REQUIRE,D)
 endif()
 
 #----------------------------------------------------------------------------

@@ -83,6 +83,8 @@
 #include "G4VCrossSectionDataSet.hh"
 #include "G4KalbachCrossSection.hh"
 #include "G4ChatterjeeCrossSection.hh"
+#include "G4VChargeExchangeXS.hh"
+#include "G4VBGGPionInelastic.hh"
 
 #include "G4SystemOfUnits.hh"
 #include "G4PhysicalConstants.hh"
@@ -90,6 +92,7 @@
 
 int main(int argc, char** argv)
 {
+  
   // Control on input
   if(argc < 2) {
     G4cout << "Input parameters are not specified! Exit" << G4endl;
@@ -98,18 +101,19 @@ int main(int argc, char** argv)
   G4int verbose = 2;
   if(0 < verbose) {
     G4cout << "====================================================" << G4endl;
-    G4cout << "======   Evaporation Cross Section Test     ========" << G4endl;
+    G4cout << "======         ChargeExchangeXS Test        ========" << G4endl;
     G4cout << "====================================================" << G4endl;
   }
   //G4int nbins = 1000;
   G4int Z = 6;
   G4int A = 12;
   G4double emax = 100.*MeV;
-  G4double eexc = 30.*MeV;
+  //G4double eexc = 30.*MeV;
   G4double de = 0.1*MeV;
   G4double emin = de*0.5;
-
-  // convert string to Z
+  G4string partname;
+  // convert string to Z 
+  //Изменить. если нужно
   G4String sz = "";
   if(argc >= 2) {
     sz = argv[1];
@@ -122,42 +126,53 @@ int main(int argc, char** argv)
     std::istringstream is(sz);
     is >> A;
   }
+  //
   auto nist = G4NistManager::Instance();
   auto elm = nist->FindOrBuildElement(Z);
-  // convert string to exitation energy
+  // Имя входной частицы
   if(argc >= 4) {
     sz = argv[3];
     std::istringstream is(sz);
-    is >> eexc;
-    eexc *= MeV;
+    is >> partname; 
+    //s >> eexc;
+    //eexc *= Me;
   }
-  G4int ibins = (G4int) (eexc/de);
-  emax = std::max(emax, eexc);
-  G4int nbins = (G4int) (emax/de);
+
+  fParticleList = new G4DecayPhysics(1);
+  fParticleList->ConstructParticle();
+
+  //Нужно Адаптировать
+  //G4int ibins = (G4int) (eexc/de);
+  emax = std::max(emax);
+  //G4int nbins = (G4int) (emax/de);
   
+  //Изменить
   if(0 < verbose) {
   	G4cout << "### Z=" << Z << " A=" << A  << " nbins=" << nbins << " Eex(MeV)=" << eexc << " Emax(MeV)=" << emax << G4endl;
   	}
   // particles
+  //Нужно. Добавить нужные и реорганизовать pi+-0 K+- LS eta eta_prime F2 omega electron
+  //
   const G4ParticleDefinition* part[8];
-  G4double pmass[8] = {0.0};
-  part[0] = G4Gamma::Gamma();
-  part[1] = nullptr;
+  G4double plmass[8] = {0.0};
+  /*part[0] = G4Gamma::Gamma();
+  part[1] = G4Electron::Electron();
   part[2] = G4Neutron::Neutron();
   part[3] = G4Proton::Proton();
   part[4] = G4Deuteron::Deuteron();
   part[5] = G4Triton::Triton();
   part[6] = G4He3::He3();
-  part[7] = G4Alpha::Alpha();
+  part[7] = G4Alpha::Alpha();*/
   G4ParticleTable* partTable = G4ParticleTable::GetParticleTable();
   partTable->SetReadiness();
-
+  //------------------------
   G4ThreeVector dir(0.0,0.0,1.0);
+  part0 = partTable->findPartcle(partname)
   auto dp = new G4DynamicParticle(part[0], dir, eexc);
-    
+
   // x-sections
   G4VCrossSectionDataSet* xs[8];
-  xs[0] = new G4GammaNuclearXS();
+  xs[0] = new G4ChargeExchangeXS();
   xs[0]->BuildPhysicsTable(*(part[0]));
   xs[1] = nullptr;
   xs[2] = new G4NeutronInelasticXS();
@@ -170,7 +185,7 @@ int main(int argc, char** argv)
   }
 
   // fragment
-  if (A <= 0) A = lrint(aeff[Z]);
+  /*if (A <= 0) A = lrint(aeff[Z]);
   G4double mass = G4NucleiProperties::GetNuclearMass(A, Z);
   G4double massEx = mass + eexc;
   G4LorentzVector lv(0.0,0.0,0.0,massEx);
@@ -319,7 +334,7 @@ int main(int argc, char** argv)
   }
  
   if (verbose > 0) { G4cout << "###### Save histograms" << G4endl; }
-  histo.Save();
+  histo.Save();*/
  
   if (verbose > 0) {
     G4cout << "###### End of run # " << G4endl;
