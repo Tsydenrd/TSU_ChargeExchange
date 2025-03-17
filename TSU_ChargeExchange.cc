@@ -83,8 +83,9 @@
 #include "G4VCrossSectionDataSet.hh"
 #include "G4KalbachCrossSection.hh"
 #include "G4ChatterjeeCrossSection.hh"
-#include "G4VChargeExchangeXS.hh"
-#include "G4VBGGPionInelastic.hh"
+#include "G4ChargeExchangeXS.hh"
+#include "G4BGGPionInelasticXS.hh"
+#include "G4DecayPhysics.hh"
 
 #include "G4SystemOfUnits.hh"
 #include "G4PhysicalConstants.hh"
@@ -104,16 +105,16 @@ int main(int argc, char** argv)
     G4cout << "======         ChargeExchangeXS Test        ========" << G4endl;
     G4cout << "====================================================" << G4endl;
   }
-  //G4int nbins = 1000;
+  
   G4int Z = 6;
   G4int A = 12;
-  G4double emax = 100.*MeV;
-  //G4double eexc = 30.*MeV;
-  G4double de = 0.1*MeV;
+  G4double de = 1*GeV;
+  G4double emax = 100.*GeV + de*0.5;
   G4double emin = de*0.5;
-  G4string partname;
+  G4String partname;
+  G4String m;
+
   // convert string to Z 
-  //Изменить. если нужно
   G4String sz = "";
   if(argc >= 2) {
     sz = argv[1];
@@ -129,31 +130,45 @@ int main(int argc, char** argv)
   //
   auto nist = G4NistManager::Instance();
   auto elm = nist->FindOrBuildElement(Z);
-  // Имя входной частицы
   if(argc >= 4) {
     sz = argv[3];
     std::istringstream is(sz);
     is >> partname; 
-    //s >> eexc;
-    //eexc *= Me;
   }
+  /*if(argc >= 5) {
+    m = argv[4];
+    std::istringstream is(m);
+    is >> m; 
+  }*/
 
-  fParticleList = new G4DecayPhysics(1);
+  auto fParticleList = new G4DecayPhysics(1);
   fParticleList->ConstructParticle();
+  //G4Material* mat = G4Material::GetMaterial(m);
 
-  //Нужно Адаптировать
-  //G4int ibins = (G4int) (eexc/de);
-  emax = std::max(emax);
-  //G4int nbins = (G4int) (emax/de);
+  G4int nbins = (G4int) ((emax-emin)/de);
   
-  //Изменить
-  if(0 < verbose) {
-  	G4cout << "### Z=" << Z << " A=" << A  << " nbins=" << nbins << " Eex(MeV)=" << eexc << " Emax(MeV)=" << emax << G4endl;
-  	}
+  //if(0 < verbose) {
+  //	G4cout << "### Z=" << Z << " A=" << A  << " nbins=" << nbins << " Emax(MeV)=" << emax << G4endl;
+  //	}
   // particles
   //Нужно. Добавить нужные и реорганизовать pi+-0 K+- LS eta eta_prime F2 omega electron
-  //
-  const G4ParticleDefinition* part[8];
+  
+  // histograms name
+  Histo histo;
+  G4String hname;
+  hname = "hist_" + partname + "_z" + std::to_string(Z) + "_a" + std::to_string(A);
+  histo.Add1D("0","Total cross section",nbins,0,emax,1);
+  histo.Add1D("1","Charge Exchange cross section",nbins,0,emax,1);
+  histo.Add1D("2","Ration of Charge Exchage to total cross section",nbins,0,emax,1);
+  
+  histo.SetFileName(hname);
+  histo.Book();
+
+  if(0 < verbose) {
+    G4cout << "Histograms are booked output file <" << hname << "> " << G4endl;
+  }
+
+  const G4ParticleDefinition* part;
   G4double plmass[8] = {0.0};
   /*part[0] = G4Gamma::Gamma();
   part[1] = G4Electron::Electron();
@@ -165,25 +180,56 @@ int main(int argc, char** argv)
   part[7] = G4Alpha::Alpha();*/
   G4ParticleTable* partTable = G4ParticleTable::GetParticleTable();
   partTable->SetReadiness();
+  G4cout << "### Z=" << Z << " A=" << A  << " nbins=" << nbins << " Emax(MeV)=" << emax << G4endl;
   //------------------------
   G4ThreeVector dir(0.0,0.0,1.0);
-  part0 = partTable->findPartcle(partname)
-  auto dp = new G4DynamicParticle(part[0], dir, eexc);
-
+  part = partTable->FindParticle(partname);
+  auto dp = new G4DynamicParticle(part, dir, emax);
+  
   // x-sections
-  G4VCrossSectionDataSet* xs[8];
+  /*G4VCrossSectionDataSet* xs[8];
   xs[0] = new G4ChargeExchangeXS();
   xs[0]->BuildPhysicsTable(*(part[0]));
   xs[1] = nullptr;
-  xs[2] = new G4NeutronInelasticXS();
+  xs[2] = new BGGPionInelasticXS();
   xs[2]->BuildPhysicsTable(*(part[2]));
   pmass[2] = neutron_mass_c2;
   for(G4int i=3; i<8; ++i) {
     pmass[i] = part[i]->GetPDGMass();
     xs[i] = new G4ParticleInelasticXS(part[i]);
     xs[i]->BuildPhysicsTable(*(part[i]));
-  }
+  }*/
+  
+  G4VCrossSectionDataSet* xs1 = new G4ChargeExchangeXS();
+  G4VCrossSectionDataSet* xs2 = new G4BGGPionInelasticXS(part);
 
+  G4double ArrXS1[nbins];
+  G4double ArrXS2[nbins];
+  
+  G4double e = emin+de*0.5;
+  for (G4int i = 0; i < nbins; i++)
+  {
+    //G4cout << e << G4endl;
+    G4bool Ap1 = xs1->IsElementApplicable(dp, Z);
+    G4bool Ap2 = xs2->IsElementApplicable(dp, Z);
+    if (Ap1)
+    {
+      ArrXS1[i]=xs1->GetElementCrossSection(dp, Z);
+    }
+    if (Ap2)
+    {
+      ArrXS2[i]=xs2->GetElementCrossSection(dp, Z);
+    }
+    G4cout << e << std::setw(35) << ArrXS1[i] << std::setw(35) << ArrXS2[i] <<G4endl;
+    
+    histo.Fill(0, e, ArrXS1[i]/barn);
+    histo.Fill(1, e, ArrXS2[i]/barn);
+    histo.Fill(2, e, ArrXS1[i]/ArrXS2[i]);
+    
+    e += de;
+    dp->SetKineticEnergy(e);
+  }
+  
   // fragment
   /*if (A <= 0) A = lrint(aeff[Z]);
   G4double mass = G4NucleiProperties::GetNuclearMass(A, Z);
@@ -197,50 +243,6 @@ int main(int argc, char** argv)
   G4VEvaporation* evap = handler.GetEvaporation();
   G4CoulombBarrier* bCoulomb[8] = {nullptr};
   G4double CB[8] = {0.0};
-
-  // histograms name
-  Histo histo;
-  G4String hname;
-  hname = "hist_ex" + std::to_string(eexc) + "_z" + std::to_string(Z) + "_a" + std::to_string(A);
- 
-  histo.Add1D("0","Gamma Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("1","Fission Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("2","Neutron Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("3","Proton Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("4","Deuteron Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("5","Triton Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("6","He3 Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("7","Alpha Evap Kalbach XS",nbins,0,emax);
-  histo.Add1D("8","Gamma Probability",ibins,0,eexc);
-  histo.Add1D("9","Fission Probability",ibins,0,eexc);
-  histo.Add1D("10","Neutron Probability",ibins,0,eexc);
-  histo.Add1D("11","Proton Probability",ibins,0,eexc);
-  histo.Add1D("12","Deuteron Probability",ibins,0,eexc);
-  histo.Add1D("13","Triton Probability",ibins,0,eexc);
-  histo.Add1D("14","He3 Probability",ibins,0,eexc);
-  histo.Add1D("15","Alpha Probability",ibins,0,eexc);
-  histo.Add1D("16","Gamma G4 XS",nbins,0,emax);
-  histo.Add1D("17","Fission G4 XS",nbins,0,emax);
-  histo.Add1D("18","Neutron G4 XS",nbins,0,emax);
-  histo.Add1D("19","Proton G4 XS",nbins,0,emax);
-  histo.Add1D("20","Deuteron G4 XS",nbins,0,emax);
-  histo.Add1D("21","Triton G4 XS",nbins,0,emax);
-  histo.Add1D("22","He3 G4 XS",nbins,0,emax);
-  histo.Add1D("23","Alpha G4 XS",nbins,0,emax);
-  histo.Add1D("24","Gamma Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("25","Fission Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("26","Neutron Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("27","Proton Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("28","Deuteron Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("29","Triton Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("30","He3 Evap Chatterjee XS",nbins,0,emax);
-  histo.Add1D("31","Alpha Evap Chatterjee XS",nbins,0,emax);
-
-  histo.SetFileName(hname);
-  histo.Book();
-  if(0 < verbose) {
-    G4cout << "Histograms are booked output file <" << hname << "> " << G4endl;
-  }
 
   G4int prec = G4cout.precision(6);
 
@@ -332,9 +334,9 @@ int main(int argc, char** argv)
       if (prob > 0.0) { histo.Fill(8 + ii, e, prob); }
     }
   }
- 
+  */
   if (verbose > 0) { G4cout << "###### Save histograms" << G4endl; }
-  histo.Save();*/
+  histo.Save();
  
   if (verbose > 0) {
     G4cout << "###### End of run # " << G4endl;
